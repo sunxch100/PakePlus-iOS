@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport"
+			content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
+		<!--,viewport-fit=cover这一个可以保证在ios覆盖掉安全区域，让安全区域颜色和背景保持一致-->
+		<title></title>
+		<link href="css/mui.min.css" rel="stylesheet" />
+		<link href="css/common.css" rel="stylesheet" />
+		<link href="css/immersed.css" rel="stylesheet" />
+		<script src="js/mui.min.js"></script>
+		<script src="js/immersed.js"></script>
+	</head>
+	<body>
+		<header class="mui-bar mui-bar-nav">
+			<a class="mui-action-back mui-icon mui-icon-left-nav mui-pull-left"></a>
+			<h1 class="mui-title">添加服务器</h1>
+		</header>
+		<div class="mui-content" id="page">
+			<div class="mui-card">
+				<div class="mui-card-header">服务器接口配置</div>
+				<form class="mui-input-group">
+					<div class="mui-input-row">
+						<label>服务器名称：</label>
+						<input type="text" v-model="serverName" @blur="changeText" class="mui-input-clear"
+							placeholder="输入服务器名称，必填">
+					</div>
+					<div class="mui-input-row">
+						<label>服务器地址：</label>
+						<input type="text" v-model="serverAddr" @blur="changeText" class="mui-input-clear"
+							placeholder="https://ip:端口，必填">
+					</div>
+					<div class="mui-input-row">
+						<label style="text-indent: 1em;">接口密钥：</label>
+						<input type="text" v-model="apiKey" @blur="changeText" class="mui-input-clear" placeholder="面板设置中复制粘贴，必填">
+					</div>
+				</form>
+			</div>
+			<div class="mui-card">
+				<div class="mui-card-header">面板信息</div>
+				<form class="mui-input-group">
+					<div class="mui-input-row">
+						<label style="text-indent: 1em;">面板账号：</label>
+						<input type="text" v-model="username" class="mui-input-clear" placeholder="输入面板账号">
+					</div>
+
+					<div class="mui-input-row">
+						<label style="text-indent: 1em;">面板密码：</label>
+						<input type="text" v-model="password" class="mui-input-clear" placeholder="输入面板密码">
+					</div>
+
+					<div class="mui-input-row">
+						<label style="text-indent: 1em;">显示顺序：</label>
+						<input type="number" v-model="sort" class="mui-input-clear" placeholder="数字越大越靠前">
+					</div>
+				</form>
+			</div>
+
+			<div class="mui-button-row">
+				<button type="button" class="mui-btn mui-btn-blue" @click="addServer">添加</button>
+			</div>
+		</div>
+		<script src="js/util.js"></script>
+		<script src="js/vue.global.prod.min.js"></script>
+		<script>
+			mui.init({
+				swipeBack: true,
+			})
+
+			mui.plusReady(function() {
+				
+			})
+			
+			mui.ready(function () {
+				
+			})
+
+			const {
+				createApp,
+				ref,
+				onMounted
+			} = Vue
+
+			const app = createApp({
+				setup() {
+					const serverName = ref('')
+					const serverAddr = ref('')
+					const apiKey = ref('')
+					const username = ref('')
+					const password = ref('')
+					const sort = ref('')
+
+					const changeText = (e) => {
+						if (e.target.classList.contains('mui-input-clear')) {
+							const input = e.target.parentNode.querySelector('input')
+					
+							if (input) {
+								// 核心步骤：手动派发一个 'input' 事件，并开启冒泡
+								// 这样 Vue3 的 v-model 就能监听到变化，从而同步更新绑定的数据
+								input.dispatchEvent(new Event('input', {
+									bubbles: true
+								}))
+							}
+						}
+					}
+
+					const addServer = () => {
+						if (serverName.value.trim() === '') {
+							mui.toast('请输入服务器名称', {
+								type: 'div'
+							})
+							return
+						}
+						if (serverAddr.value.trim() === '') {
+							mui.toast('请输入服务器地址', {
+								type: 'div'
+							})
+							return
+						}
+						if (apiKey.value.trim() === '') {
+							mui.toast('请输入接口密钥', {
+								type: 'div'
+							})
+							return
+						}
+
+						const newServerData = {
+							id: (new Date()).getTime(),
+							server_name: serverName.value,
+							server_addr: serverAddr.value,
+							api_key: apiKey.value,
+							username: username.value,
+							password: password.value,
+							sort: sort.value,
+						}
+
+						if (mui.os.plus) {
+							let listPage = plus.webview.getWebviewById('list.html')
+							mui.fire(listPage, 'refreshList', { server: newServerData })
+						}
+
+						mui.alert('服务器添加成功', '系统提示', '确定', function(e) {}, 'div')
+					}
+
+					onMounted(() => {
+						mui('#page')[0].classList.add('vue-loaded')
+					})
+
+					return {
+						serverName,
+						serverAddr,
+						apiKey,
+						username,
+						password,
+						sort,
+						addServer,
+						changeText
+					}
+				}
+			}).mount('#page')
+		</script>
+	</body>
+</html>
