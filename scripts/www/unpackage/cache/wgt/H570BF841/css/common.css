@@ -1,0 +1,16 @@
+* {
+	text-shadow: transparent 0 0 0, rgb(0 0 0) 0 0 0 !important;
+}
+
+#page {
+	display: none;
+}
+
+/* Vue加载完成后显示 */
+#page.vue-loaded {
+	display: block;
+}
+
+.mui-scroll-wrapper {
+	top: 54px;
+}
