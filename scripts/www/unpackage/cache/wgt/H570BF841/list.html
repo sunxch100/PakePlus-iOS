@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport"
+			content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no" />
+		<title></title>
+		<script src="js/mui.min.js"></script>
+		<link href="css/mui.min.css" rel="stylesheet" />
+		<link href="css/common.css" rel="stylesheet" />
+		<style>
+			.mui-table-view.mui-grid-view .mui-table-view-cell .mui-media-body {
+				font-size: 13px;
+			}
+
+			.mui-scroll-wrapper {
+				margin-top:44px;
+			}
+
+			.btn-group {
+				display: flex;
+				justify-content: space-between;
+				padding: 10px;
+				/* background-color: red; */
+				z-index:99;
+			}
+		</style>
+	</head>
+	<body>
+		<div id="page">
+			<header class="mui-bar mui-bar-nav">
+				<!-- <a class="mui-icon mui-icon-download mui-pull-left" @click="downloadServerList"></a>
+				<a class="mui-icon mui-icon-upload mui-pull-left" @click="uploadServerList"></a> -->
+				<h1 class="mui-title">服务器列表</h1>
+				<a class="mui-icon mui-icon-gear-filled mui-pull-right" @click="openSetting()"></a>
+			</header>
+
+			<div class="mui-content">
+				<div class="btn-group">
+					<button type="button" class="mui-btn mui-btn-primary  mui-icon mui-icon-plus"
+						@click="addServer()">添加服务器</button>
+
+					<button type="button" class="mui-btn  mui-icon mui-icon-download"
+						@click="downloadServerList()">下载列表</button>
+
+					<button type="button" class="mui-btn  mui-icon mui-icon-upload"
+						@click="uploadServerList()">同步到服务器</button>
+				</div>
+
+				<div class="mui-scroll-wrapper">
+					<div class="mui-scroll">
+						<div class="mui-card" style="margin-top: 0;">
+							<ul class="mui-table-view">
+								<li class="mui-table-view-cell" v-for="server in serverList"
+									@click.prevent="openDetail(server.apiKey)">
+									<div class="mui-slider-handle">
+										<span class="mui-navigate-right">
+											{{server.serverName}}
+											<p>{{server.serverAddr}}</p>
+										</span>
+									</div>
+									<div class="mui-slider-right mui-disabled">
+										<a class="mui-btn mui-btn-red delete"
+											@click.stop="deleteServer(server.apiKey)">删除</a>
+										<a class="mui-btn mui-btn-primary edit"
+											@click.stop="editServer(server.apiKey)">修改</a>
+									</div>
+								</li>
+								
+							</ul>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+		<script src="js/init.js"></script>
+		<script src="js/vue.global.prod.min.js"></script>
+		<script>
+			mui.init();
+
+			mui.ready(function() {
+				mui('.mui-scroll-wrapper').scroll({
+					bounce: true
+				});
+			})
+			
+			mui.plusReady(function () {
+			    plus.navigator.setStatusBarStyle("dark")
+			    plus.navigator.setStatusBarBackground('#f7f7f7')
+			})
+
+			const {
+				createApp,
+				ref,
+				onMounted,
+				onShow
+			} = Vue
+
+			createApp({
+				setup() {
+					const serverList = ref({})
+
+					const addServer = () => {
+						mui.openWindow({
+							url: 'add.html',
+							id: 'add.html',
+							createNew: true,
+						})
+					}
+
+					const getServerList = () => {
+						const savedServerList = localStorage.getItem('serverList') || '{}'
+
+						serverList.value = JSON.parse(savedServerList)
+					}
+
+					const openDetail = (apiKey) => {
+						let li = event.target.closest('li')
+						if (li) {
+							mui.swipeoutClose(li)
+						}
+
+						mui.openWindow({
+							url: 'detail.html?apiKey=' + apiKey,
+							id: 'detail.html',
+							createNew: false,
+						})
+					}
+
+					const deleteServer = (apiKey = '') => {
+						let li = event.target.parentNode.parentNode
+						mui.confirm('确定要删除该服务器信息吗？', '系统提示', ['取消', '确认'], function(e) {
+							if (e.index === 1) {
+								const savedServerList = localStorage.getItem('serverList') || '{}'
+								let _serverList = JSON.parse(savedServerList)
+
+								delete _serverList[apiKey]
+
+								serverList.value = _serverList
+
+								localStorage.setItem('serverList', JSON.stringify(_serverList))
+
+								mui.swipeoutClose(li)
+							}
+						}, 'div')
+					}
+
+					const editServer = (apiKey) => {
+						mui.swipeoutClose(event.target.parentNode.parentNode)
+						
+						mui.openWindow({
+							url: 'edit.html?apiKey=' + apiKey,
+							id: 'edit.html',
+							createNew: false,
+						})
+					}
+
+					const downloadServerList = () => {
+						mui.confirm('确定要下载服务器列表吗?\n此操作会覆盖本地服务器列表', '系统提示', ['取消', '确认'], function(e) {
+							if (e.index === 1) {
+								mui.ajax(BASEURL + '/baota.php?action=downloadServerList', {
+									data: {
+
+									},
+									dataType: 'json', //服务器返回json格式数据
+									type: 'get', //HTTP请求类型
+									timeout: 10000, //超时时间设置为10秒；
+									success: function(data) {
+										console.log(JSON.stringify(data))
+										serverList.value = data
+
+										localStorage.setItem('serverList', JSON.stringify(data))
+										mui.toast('服务器列表下载完成', {
+											type: 'div'
+										})
+									},
+									error: function(xhr, type, errorThrown) {
+										mui.alert('服务器繁忙：' + errorThrown, '系统提示', '确定', function(
+											e) {
+											e.index
+										}, 'div')
+									}
+								});
+							}
+						}, 'div')
+					}
+
+					const uploadServerList = () => {
+						mui.confirm('确定要将当前列表同步到服务器吗?\n此操作会覆盖服务器上保存的列表', '系统提示', ['取消', '确认'], function(e) {
+							if (e.index === 1) {
+								mui.ajax(BASEURL + '/baota.php?action=uploadServerList', {
+									data: {
+										serverList: JSON.stringify(serverList.value)
+									},
+									dataType: 'json', //服务器返回json格式数据
+									type: 'post', //HTTP请求类型
+									timeout: 10000, //超时时间设置为10秒；
+									success: function(res) {
+										mui.alert(res.msg, '系统提示', '确定', () => {}, 'div')
+										
+									},
+									error: function(xhr, type, errorThrown) {
+										console.log(errorThrown)
+										mui.alert('服务器繁忙：'+errorThrown, '系统提示', '确定', () => {}, 'div')
+									}
+								});
+							}
+						}, 'div')
+					}
+
+					const openSetting = () => {
+						mui.openWindow({
+							url: 'setting.html',
+							id: 'setting.html',
+							createNew: true,
+						})
+					}
+
+					onMounted(() => {
+						getServerList()
+						mui('#page')[0].classList.add('vue-loaded')
+						if (mui.os.plus) {
+							window.addEventListener('refreshList', () => {
+								const savedServerList = localStorage.getItem('serverList') || '{}'
+
+								serverList.value = JSON.parse(savedServerList)
+							})
+						} else {
+							window.addEventListener('pageshow', function(event) {
+								console.log('pageshow')
+							})
+						}
+					})
+
+					return {
+						serverList,
+						addServer,
+						getServerList,
+						openDetail,
+						deleteServer,
+						editServer,
+						downloadServerList,
+						uploadServerList,
+						openSetting
+					}
+				}
+			}).mount('#page')
+		</script>
+	</body>
+</html>
