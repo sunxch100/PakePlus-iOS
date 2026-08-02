@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+	<head>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+		<title>固定60px中间凸起Tab 顶部连续边框</title>
+		<link rel="stylesheet" href="https://cdn.bootcdn.net/ajax/libs/mui/3.7.1/css/mui.min.css">
+		<style>
+			.mui-bar {
+				-webkit-box-shadow: 0 0 0.5px rgba(0, 0, 0, .85);
+				box-shadow: 0 0 0.5px rgba(0, 0, 0, .85);
+			}
+
+			.mui-bar-tab {
+				position: fixed;
+				bottom: 0;
+				/* safe-area:35px */
+				left: 0;
+				width: 100%;
+				height: 60px;
+				background: #ffffff;
+				display: flex;
+				justify-content: space-evenly;
+				align-items: center;
+				padding-bottom: env(safe-area-inset-bottom);
+				/* 导航栏顶部横线分割线 */
+				border-top: 1px solid #eee;
+				z-index: 99;
+			}
+
+			/* 普通tab禁止flex拉伸 */
+			.mui-bar-tab .mui-tab-item {
+				flex: 0 1 auto;
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				justify-content: center;
+				color: #999;
+				text-decoration: none;
+				position: relative;
+				min-width: 50px;
+			}
+
+			.mui-bar-tab .mui-tab-item .mui-icon {
+				font-size: 22px;
+			}
+
+			.mui-bar-tab .mui-tab-item .mui-tab-label {
+				font-size: 12px;
+				margin-top: 3px;
+			}
+
+			.mui-bar-tab .mui-tab-item.mui-active {
+				color: #007aff;
+			}
+
+			/* ========== 新增：中间环形外层（实现圆弧上边框核心） ========== */
+			.tab-center-ring {
+				position: relative;
+				top: -15px;
+				/* 环形整体尺寸，比内部红圆大10px，留出白色间隙 */
+				width: 70px;
+				height: 70px;
+				flex: 0 0 70px;
+				border-radius: 50%;
+				background: #fff;
+				/* 四边统一上色，底部透明隐藏，只剩上半圈圆弧边框 */
+				border-top: 1px solid #eee;
+				border-bottom-color: transparent;
+				box-sizing: border-box;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+			}
+
+			.tab-center-ring::before {
+				position: absolute;
+				content: '';
+				border: 1px solid #ccc;
+				border-radius: 50%;
+				width: 70px;
+				height: 70px;
+				clip-path: polygon(0 0, 100% 0, 100% 20px, 0 20px);
+				/* (0,0)──────────────(100%,0)
+				    │                    │
+				    │                    │
+				    │                    │
+				(0,50%)────────────(100%,50%) */
+			}
+
+			/* 内层红色M圆，严格60px宽高 */
+			.mui-bar-tab .tab-center-btn {
+				width: 60px !important;
+				height: 60px !important;
+				flex: 0 0 60px;
+				border-radius: 50%;
+
+				/* 球形渐变：上亮下暗，自带立体圆弧质感 */
+				background: linear-gradient(145deg, #ff533b, #e82c1b);
+
+				/* 外层投影+内部高光/暗部，打造立体圆球 */
+				box-shadow:
+					0 3px 10px rgba(200, 30, 10, 0.55),
+
+					/* 内侧底部暗面 */
+					inset 0 -5px 8px rgba(140, 15, 0, 0.35),
+
+
+					/* 内侧顶部高光 */
+					inset 0 4px 6px rgba(255, 255, 255, 0.28);
+
+				display: flex;
+				align-items: center;
+				justify-content: center;
+
+				/* 过渡：位移、阴影、渐变统一顺滑切换 */
+				transition: all 0.12s ease-out;
+
+				border: 1px solid rgba(255, 255, 255, 0.12);
+			}
+
+			.mui-bar-tab .tab-center-btn:active {
+				/* 按压深色渐变 */
+				background: linear-gradient(145deg, #d12a18, #9c2012);
+
+				/* 向下微动2px，仅视觉偏移，不挤压布局 */
+				transform: translateY(2px);
+
+				/* 按压阴影缩小，内部凹陷感增强 */
+				box-shadow:
+					0 2px 6px rgba(140, 15, 0, 0.4),
+					inset 0 6px 10px rgba(90, 0, 0, 0.45),
+					inset 0 -2px 3px rgba(255, 255, 255, 0.1);
+			}
+
+			/* 图标样式 */
+			.mui-bar-tab .tab-center-btn .center-icon {
+				color: #fff;
+				transition: color 0.12s;
+			}
+
+			.mui-bar-tab .tab-center-btn.active .center-icon {
+				color: #000;
+			}
+
+			.tab-center-btn .center-icon {
+				color: #fff;
+				font-size: 32px;
+				font-weight: bold;
+			}
+
+			.tab-center-btn .mui-tab-label {
+				display: none;
+			}
+
+			.page-wrap {
+				padding-bottom: 90px;
+			}
+		</style>
+	</head>
+	<body>
+
+		<nav class="mui-bar mui-bar-tab">
+			<a class="mui-tab-item mui-active" data-page="list.html">
+				<span class="mui-icon mui-icon-home"></span>
+				<span class="mui-tab-label">首页</span>
+			</a>
+			<!-- 双层结构：外层环形容器 + 内层红色按钮 -->
+			<div class="tab-center-ring">
+				<a class="mui-tab-item tab-center-btn" data-page="add.html" role="button">
+					<span class="center-icon">+</span>
+					<span class="mui-tab-label">中间</span>
+				</a>
+			</div>
+			<a class="mui-tab-item" data-page="setting.html">
+				<span class="mui-icon mui-icon-settings"></span>
+				<span class="mui-tab-label">设置</span>
+			</a>
+		</nav>
+		<!-- <div class="safe-area"></div> -->
+
+		<script src="https://cdn.bootcdn.net/ajax/libs/mui/3.7.1/js/mui.min.js"></script>
+		<script>
+			let tabBottom = 80 //80(nav60+top19+border1) +35(ios safe-area +10)
+			let currentWebview = null
+			let aniShow = 'none'
+			mui.init({
+				subpages: [{
+					url: 'list.html',
+					id: 'list.html',
+					styles: {
+						top: 0,
+						bottom: tabBottom + 'px'
+					},
+					extras: {}
+				}]
+			})
+
+			mui('.mui-bar-tab').on('tap', '.mui-tab-item', function() {
+				const targetPage = this.getAttribute('data-page');
+
+				if (targetPage !== 'add.html') {
+					mui('.mui-tab-item').each((index, item) => {
+						item.classList.remove('mui-active');
+					})
+					mui(this)[0].classList.add('mui-active');
+
+					aniShow = 'none'
+				} else {
+					aniShow = 'slide-in-bottom'
+					tabBottom = 0
+					
+					let targetWebview = plus.webview.getWebviewById(targetPage)
+					if (!targetWebview) {
+						targetWebview = plus.webview.create(targetPage, targetPage, {
+							top: 0,
+							bottom: tabBottom + 'px',
+							render: 'always',
+							scrollIndicator: "none",
+							cache: true
+						})
+					}
+					
+					targetWebview.show(aniShow, 300)
+					
+					return
+				}
+
+
+				let targetWebview = plus.webview.getWebviewById(targetPage)
+				if (!targetWebview) {
+					targetWebview = plus.webview.create(targetPage, targetPage, {
+						top: 0,
+						bottom: tabBottom + 'px',
+						render: 'always',
+						scrollIndicator: "none",
+						cache: true
+					})
+				}
+
+				if (currentWebview === targetWebview) {
+					return
+				}
+
+				if (currentWebview) {
+					currentWebview.hide()
+				}
+
+				targetWebview.show(aniShow, 300)
+
+				currentWebview = targetWebview
+
+			})
+		</script>
+	</body>
+</html>
