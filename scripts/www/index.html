@@ -1,0 +1,32 @@
+<!doctype html>
+<html>
+
+	<head>
+		<meta charset="utf-8">
+		<title></title>
+		<meta name="viewport"
+			content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
+		<link href="css/mui.min.css" rel="stylesheet" />
+	</head>
+
+	<body>
+		<script src="js/mui.min.js"></script>
+		<script type="text/javascript">
+			mui.init({
+				statusBarBackground: '#f7f7f7',
+				subpages: [{
+					url: 'list.html', //子页面HTML地址，支持本地地址和网络地址
+					id: 'list.html', //子页面标志
+					styles: {
+						top: 0, //子页面顶部位置
+						bottom: 0, //子页面底部位置
+						
+					},
+
+					extras: {} //额外扩展参数
+				}]
+			})
+		</script>
+	</body>
+
+</html>
