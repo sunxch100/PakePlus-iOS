@@ -1,0 +1,360 @@
+<!doctype html>
+<html>
+
+	<head>
+		<meta charset="utf-8">
+		<title>设置</title>
+		<meta name="viewport"
+			content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
+		<!-- <script src="html5plus://ready"></script> -->
+		<link href="css/mui.min.css" rel="stylesheet" />
+		<link href="css/common.css" rel="stylesheet" />
+		<link href="css/immersed.css" rel="stylesheet" />
+	</head>
+
+	<body>
+
+		<header class="mui-bar mui-bar-nav">
+			<a class="mui-action-back mui-icon mui-icon-left-nav mui-pull-left"></a>
+			<a class="mui-icon mui-icon-trash mui-pull-right" onclick="clearStorage()"></a>
+			<h1 class="mui-title">设置</h1>
+		</header>
+		<div class="mui-content">
+			<div class="mui-card">
+				<div class="mui-card-header">应用信息</div>
+				<ul class="mui-table-view">
+					<li class="mui-table-view-cell">
+						<a class="mui-navigate-right2">
+							版本号：<span id="version">1.0</span>
+							&nbsp;&nbsp;<span id='checkupdateStatus'></span>
+						</a>
+					</li>
+					<li class="mui-table-view-cell" onclick="showUUID()">
+						<a class="mui-navigate-right2">
+							设备ID：<span id="uuid">*</span>
+						</a>
+					</li>
+
+					<li class="mui-table-view-cell">
+						<a class="mui-navigate-right2">
+							用户密钥：<span id="userToken" onclick="showUserToken()">****</span>
+							<span class="mui-badge mui-badge-danger" onclick="openLogin()">修改密钥</span>
+						</a>
+					</li>
+				</ul>
+			</div>
+
+			<br />
+			<div class="mui-button-row">
+				<button type="button" class="mui-btn mui-btn-success" id="checkBtn" data-loading-text="检查更新..."
+					onclick="checkUpdate()">检查更新</button>
+			</div>
+		</div>
+
+		<script src="js/mui.min.js"></script>
+		<script src="js/immersed.js"></script>
+		<script src="js/init.js"></script>
+		<script src="js/util.js"></script>
+		<script type="text/javascript">
+			mui.init({
+				swipeBack: true,
+				beforeback: () => {
+					if (mui.os.plus) {
+						if (downloader) {
+							plus.downloader.clear()
+						}
+						cancelUpdateApp()
+					}
+				}
+			})
+
+			let userToken = ''
+
+			let myPage = null
+			mui.plusReady(function() {
+				getCurrentVersion()
+
+				mui('#uuid')[0].innerText = plus.device.uuid
+			})
+
+			let checkBtn = null
+			mui.ready(function() {
+				checkBtn = mui('#checkBtn')
+				mui('#userToken')[0].innerText = maskStr(localStorage.getItem('userToken') ?? '')
+			})
+
+			//获取设备UUID
+			function showUUID() {
+				let uuid = ''
+				plus.device.getInfo({
+					success: (e) => {
+						uuid = e.uuid
+
+						mui.alert(uuid + '<br>点击确定复制设备ID', '系统提示', '确定', (e) => {
+							copyToClipboard(uuid)
+						}, 'div')
+					},
+					fail: (e) => {
+						mui.toast('未获取到设备ID', {
+							type: 'div'
+						})
+					}
+				})
+			}
+
+			function showUserToken() {
+				mui('#userToken')[0].innerText = localStorage.getItem('userToken') ?? '-'
+			}
+
+			function maskStr(str) {
+				if (str.length < 4) {
+					return '-'
+				}
+
+				const first = str.charAt(0);
+				const last = str.charAt(str.length - 1);
+				return first + '****' + last;
+			}
+
+			function openLogin() {
+				setTimeout(() => {
+					mui('.mui-popup-input input')[0].value = localStorage.getItem('userToken') ?? ''
+				}, 0)
+
+				mui.prompt('请输入密钥以获取和上传数据', '输入密钥，长度10-32个字符之间', '系统提示', ['取消', '确定'], function(e) {
+					if (e.index === 1) {
+						userToken = e.value.trim()
+						if (userToken.length >= 10 && userToken.length <= 32) {
+							localStorage.setItem('userToken', userToken)
+
+							mui('#userToken')[0].innerText = maskStr(userToken)
+						} else if (userToken.length > 32) {
+							mui.toast('密钥最多32个字符', {
+								type: 'div'
+							})
+							return false
+						} else {
+							mui.toast('密钥最少10个字符', {
+								type: 'div'
+							})
+							return false
+						}
+					}
+				}, 'div')
+			}
+
+			function clearStorage() {
+				mui.confirm('确定要清理缓存吗？', '系统提示', ['取消', '清理缓存'], function(e) {
+					if (e.index === 1) {
+						localStorage.removeItem('userToken')
+						localStorage.removeItem('serverList')
+
+						mui('#userToken')[0].innerText = '-'
+
+						let listPage = plus.webview.getWebviewById('list.html')
+						mui.fire(listPage, 'clearList')
+
+						mui.toast('缓存清理完成', {
+							type: 'div'
+						})
+					}
+				}, 'div')
+			}
+
+
+			//复制到剪贴板
+			function copyToClipboard(text) {
+				// 创建临时textarea元素
+				const textArea = document.createElement('textarea')
+				textArea.value = text
+
+				// 隐藏textarea（避免页面闪烁）
+				textArea.style.position = 'fixed'
+				textArea.style.top = '-999px'
+				textArea.style.left = '-999px'
+				textArea.style.width = '2em'
+				textArea.style.height = '2em'
+
+				document.body.appendChild(textArea)
+				// 选中文本并复制
+				textArea.focus()
+				textArea.select()
+
+				try {
+					const successful = document.execCommand('copy');
+					if (successful) {
+						mui.toast('设备ID复制成功', {
+							type: 'div'
+						});
+					} else {
+						throw new Error('execCommand复制失败');
+					}
+				} catch (err) {
+					console.error('降级方案也失败：', err);
+					mui.toast('复制失败', {
+						type: 'div'
+					});
+				} finally {
+					// 移除临时元素
+					document.body.removeChild(textArea)
+				}
+			}
+
+			let isUpdating = false
+			let wgtVer = ''
+			let downloader = null
+
+			const $checkupdateStatus = mui('#checkupdateStatus')[0]
+
+			// 获取本地应用资源版本号
+			function getCurrentVersion() {
+				plus.runtime.getProperty(plus.runtime.appid, function(inf) {
+					wgtVer = inf.version
+
+					mui('#version')[0].innerText = wgtVer
+				})
+			}
+
+			// 检测更新
+			/* 差量更新操作步骤：
+			1、checkupdate.php更新为最新版本号,例如echo '2.3';
+			2、www下的manifest.json文件中的版本号version->name为最新,例如2.3
+			3、www同级目录下update.xml文件,文件格式如下
+			<?xml version="1.0" encoding="utf-8" standalone="no"?>  
+			<wgtu appid="H59D20144" >  
+				<basis version="2.2" />  这里的版本号为应用当前版本号,不是最新版本号
+				<remove>  
+					<item path="www/2.html" />  //只需要移除的目录，已存在的或新增的，会自动添加覆盖
+				</remove>  
+			</wgtu>
+			4、压缩包下打开必须是update.xml,不能放到二级目录下,创建这样的文件可以直接右键update.xml
+				压缩文件就可以
+			5、www目录下放需要更新的文件
+			6、特别注意,ios增量更新提示manifest.json文件格式错误，
+				是因为manifest.json在ios上需要压缩内容，
+				或者说只需要部分内容，可以直接从HBuilder生成的wgt文件中复制粘贴出来，
+				Android则不存在这个问题*/
+			function checkUpdate(e) {
+				if (isUpdating === true) {
+					return
+				}
+
+				isUpdating = true
+
+				checkBtn.button('loading')
+				$checkupdateStatus.innerText = '检查更新中...'
+
+				let checkUrl = BASEURL + "/checkupdate.php";
+
+				mui.ajax(checkUrl, {
+					dataType: 'json',
+					type: 'get',
+					timeout: 10000,
+					success: function(res) {
+						let newVer = res.version
+						let content = res.content
+						let downloadUrl = res.url
+
+						if (wgtVer && newVer && (wgtVer != newVer)) {
+							//plus.nativeUI.closeWaiting()
+							mui.confirm(`<div style="text-align:left;">${content}</div>`,
+								'发现新版本：' + newVer,
+								['取消', '更新'],
+								(e) => {
+									if (e.index === 1) {
+										downWgt(downloadUrl)
+									} else {
+										cancelUpdateApp()
+									}
+								}, 'div')
+						} else {
+							isUpdating = false
+
+							checkBtn.button('reset')
+							$checkupdateStatus.innerText = ''
+
+							mui.alert('暂无新版本可更新！', '系统提示', '确定', (e) => {}, 'div')
+						}
+					},
+					error: function(xhr, type, errorThrown) {
+						isUpdating = false
+
+						checkBtn.button('reset')
+						$checkupdateStatus.innerText = ''
+
+						mui.alert('服务器繁忙：' + errorThrown, '系统提示', '确定', (e) => {}, 'div')
+					}
+				})
+			}
+
+			//下载wgt文件  
+			function downWgt(downloadUrl = '') {
+				let wgtUrl = BASEURL + "/H570BF841.wgt"
+				if (downloadUrl) {
+					wgtUrl = downloadUrl
+				}
+
+				$checkupdateStatus.innerText = '下载更新文件...'
+
+				downloader = plus.downloader.createDownload(wgtUrl, {
+					filename: "_doc/update/",
+					timeout: 30,
+					retry: 1,
+					retryInterval: 5
+				}, function(d, status) {
+					if (status == 200) {
+						$checkupdateStatus.innerText = '下载更新文件完成'
+						installWgt(d.filename)
+					} else {
+						checkBtn.button('reset')
+						$checkupdateStatus.innerText = '下载更新文件失败'
+						isUpdating = false
+
+						mui.alert("下载更新文件失败！", '系统提示', '确定', function(e) {}, 'div')
+					}
+				})
+
+				downloader.start()
+			}
+
+			// 更新应用资源  
+			function installWgt(path) {
+				$checkupdateStatus.innerText = '安装更新包...'
+
+				plus.runtime.install(path, {
+					force: true
+				}, function() {
+					plus.runtime.getProperty(plus.runtime.appid, function(inf) {
+						wgtVer = inf.version
+
+						mui('#version')[0].innerText = wgtVer
+
+						isUpdating = false
+
+						checkBtn.button('reset')
+						$checkupdateStatus.innerText = ''
+
+						mui.alert("应用更新完成，点击重启", '系统提示', '确定', function(e) {
+							plus.runtime.restart()
+						}, 'div')
+					})
+				}, function(e) {
+					isUpdating = false
+
+					checkBtn.button('reset')
+					$checkupdateStatus.innerText = ''
+
+					mui.alert("安装更新包失败[" + e.code + "]<br>" + e.message, '系统提示', '确定', function(e) {}, 'div')
+				})
+			}
+
+			function cancelUpdateApp() {
+				mui('#version')[0].innerText = wgtVer
+				mui('#checkBtn').button('reset')
+				$checkupdateStatus.innerText = ''
+				isUpdating = false
+			}
+		</script>
+	</body>
+
+</html>
