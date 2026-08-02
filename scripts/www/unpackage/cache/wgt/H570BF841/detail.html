@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport"
+			content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no" />
+		<title></title>
+		<script src="js/mui.min.js"></script>
+		<script src="html5plus://ready"></script>
+		<link href="css/mui.min.css" rel="stylesheet" />
+		<style>
+			#page {
+				display: none;
+			}
+
+			/* Vue加载完成后显示 */
+			#page.vue-loaded {
+				display: block;
+			}
+
+			.mui-table-view.mui-grid-view .mui-table-view-cell .mui-media-body {
+				font-size: 13px;
+			}
+
+			.mui-grid-view.mui-grid-9 .mui-table-view-cell {
+				border-right: 1px solid #c8c7cc;
+				border-bottom: 1px solid #c8c7cc;
+			}
+
+			.font12 {
+				font-size: 12px;
+			}
+		</style>
+	</head>
+	<body>
+		<div id="page">
+			<header class="mui-bar mui-bar-nav  mui-bar-transparent">
+				<a class="mui-action-back mui-icon mui-icon-left-nav mui-pull-left"></a>
+				<h1 class="mui-title">服务器信息 - {{serverName4Title}}</h1>
+				<a class="mui-icon mui-icon-compose mui-pull-right" @click="editServer"></a>
+			</header>
+			<div class="mui-content">
+				<div class="mui-card" style="border-radius: 6px;">
+					<ul class="mui-table-view mui-grid-view mui-grid-9">
+						<li class="mui-table-view-cell mui-media mui-col-xs-12 mui-col-sm-12">
+							<a href="#">
+								<span class="system" style="font-size: 13px;">{{systemTotal.system}}</span>
+								<div class="mui-media-body">操作系统信息</div>
+							</a>
+						</li>
+						<li class="mui-table-view-cell mui-media mui-col-xs-4 mui-col-sm-4">
+							<a href="#">
+								<span class="version">{{systemTotal.version}}&nbsp;</span>
+								<div class="mui-media-body">面板版本</div>
+							</a>
+						</li>
+
+						<li class="mui-table-view-cell mui-media mui-col-xs-4 mui-col-sm-4">
+							<a href="#">
+								<span class="cpuNum">{{systemTotal.cpuNum}}&nbsp;</span>
+								<div class="mui-media-body">CPU核心数</div>
+							</a>
+						</li>
+						<li class="mui-table-view-cell mui-media mui-col-xs-4 mui-col-sm-4">
+							<a href="#">
+								<span class="cpuRealUsed">{{systemTotal.cpuRealUsed}}%</span>
+								<div class="mui-media-body">CPU使用率</div>
+							</a>
+						</li>
+						<li class="mui-table-view-cell mui-media mui-col-xs-4 mui-col-sm-4">
+							<a href="#">
+								<span class="memTotal">{{systemTotal.memTotal}}MB</span>
+								<div class="mui-media-body">物理内存容量</div>
+							</a>
+						</li>
+						<li class="mui-table-view-cell mui-media mui-col-xs-4 mui-col-sm-4">
+							<a href="#">
+								<span class="memRealUsed">{{systemTotal.memRealUsed}}MB</span>
+								<div class="mui-media-body">已用物理内存</div>
+							</a>
+						</li>
+						<li class="mui-table-view-cell mui-media mui-col-xs-4 mui-col-sm-4">
+							<a href="#">
+								<span class="memFree">{{systemTotal.memFree}}MB</span>
+								<div class="mui-media-body">可用物理内存</div>
+							</a>
+						</li>
+						<li class="mui-table-view-cell mui-media mui-col-xs-4 mui-col-sm-4">
+							<a href="#">
+								<span class="memCached">{{systemTotal.memCached}}MB</span>
+								<div class="mui-media-body">缓存化的内存</div>
+							</a>
+						</li>
+						<li class="mui-table-view-cell mui-media mui-col-xs-4 mui-col-sm-4">
+							<a href="#">
+								<span class="memBuffers">{{systemTotal.memBuffers}}MB</span>
+								<div class="mui-media-body">系统缓冲</div>
+							</a>
+						</li>
+						<li class="mui-table-view-cell mui-media mui-col-xs-4 mui-col-sm-4"
+							style="border-bottom-left-radius:0;">
+							<a href="#">
+								<span class="time">{{systemTotal.time}}&nbsp;</span>
+								<div class="mui-media-body">运行时间</div>
+							</a>
+						</li>
+					</ul>
+				</div>
+
+				<div class="mui-card">
+					<div class="mui-card-header">网站列表</div>
+					<div class="mui-card-content">
+						<ul class="mui-table-view">
+							<li class="mui-table-view-cell" v-for="website in websiteList">
+								<b @click="openWebsite(website.name)">网站名称：{{website.name}}</b>
+								<p class="font12">网站路径：{{website.path}}</p>
+								<p class="font12">添加日期：{{website.addtime}}</p>
+								<p class="font12">PHP版本：{{website.php_version}}</p>
+								<span class="mui-badge"
+									:class="website.status==='1'?'mui-badge-success':'mui-badge-warning'">{{website.status==="1"?'运行中':'已停止'}}</span>
+							</li>
+						</ul>
+					</div>
+				</div>
+
+			</div>
+		</div>
+		<script src="js/init.js"></script>
+		<script src="js/vue.global.prod.min.js"></script>
+		<script>
+			mui.init({
+				swipeBack:false,
+			});
+
+			const {
+				createApp,
+				ref,
+				onMounted,
+				reactive
+			} = Vue
+
+			createApp({
+				setup() {
+					const apiKey4Edit = ref('')
+					const serverName4Title = ref('')
+					const systemTotal = ref([])
+					const websiteList = ref([])
+
+					const getSystemTotal = (serverAddr, apiKey) => {
+						mui.ajax(BASEURL + '/baota.php?action=getSystemTotal', {
+							data: {
+								serverAddr: serverAddr,
+								apiKey: apiKey
+							},
+							dataType: 'json', //服务器返回json格式数据
+							type: 'POST', //HTTP请求类型
+							timeout: 12000, //超时时间设置为12秒；
+							success: function(data) {
+								console.log(JSON.stringify(data))
+								if (JSON.stringify(data) === 'null') {
+									mui.toast('获取服务器信息失败')
+									return
+								}
+								systemTotal.value = data
+							},
+							error: function(xhr, type, errorThrown) {
+								mui.alert('服务器繁忙', '系统提示', '确定', function(e) {}, 'div')
+							},
+							complete: function() {
+
+							}
+						})
+					}
+
+					const getWebsiteList = (serverAddr, apiKey) => {
+						mui.ajax(BASEURL + '/baota.php?action=getWebsiteList', {
+							data: {
+								serverAddr: serverAddr,
+								apiKey: apiKey
+							},
+							dataType: 'json', //服务器返回json格式数据
+							type: 'POST', //HTTP请求类型
+							timeout: 10000, //超时时间设置为10秒；
+							success: function(res) {
+								if (JSON.stringify(res) === 'null') {
+									mui.toast('获取服务器信息失败', {
+										type: 'div'
+									})
+									return
+								}
+								websiteList.value = res.data
+
+							},
+							error: function(xhr, type, errorThrown) {
+								mui.alert('服务器繁忙', '系统提示', '确定', function(e) {}, 'div')
+							},
+							complete: function() {
+
+							}
+						})
+					}
+
+					const editServer = () => {
+						console.log(apiKey4Edit.value)
+						mui.openWindow({
+							url: 'edit.html?apiKey=' + apiKey4Edit.value,
+							id: 'edit.html',
+							createNew: true,
+						})
+					}
+
+					const openWebsite = (name) => {
+						if (mui.os.plus) {
+							plus.runtime.openWeb(name)
+						} else {
+							window.open('//' + name)
+						}
+					}
+
+					onMounted(() => {
+						mui.toast('获取服务器信息...', {
+							type: 'div'
+						})
+
+						const searchParams = new URLSearchParams(location.search)
+
+						// 获取单个参数（不存在返回空字符串 ""）
+						const apiKey = searchParams.get("apiKey")
+						apiKey4Edit.value = apiKey
+
+						const savedServerList = localStorage.getItem('serverList') || '{}'
+						const serverList = JSON.parse(savedServerList)
+						if (!serverList[apiKey]) {
+							mui.alert('服务器信息不存在', '系统提示', '确定', (e) => {
+								mui.back()
+							})
+						}
+
+						const serverAddr = serverList[apiKey].serverAddr
+
+						getSystemTotal(serverAddr, apiKey)
+
+						getWebsiteList(serverAddr, apiKey)
+
+						serverName4Title.value = serverList[apiKey].serverName
+
+						mui('#page')[0].classList.add('vue-loaded')
+
+						if (mui.os.plus) {
+							window.addEventListener('refreshDetail', () => {
+								let savedServerList = localStorage.getItem('serverList') || '{}'
+								let serverList = JSON.parse(savedServerList)
+								serverName4Title.value = serverList[apiKey].serverName
+							})
+						} else {
+							window.addEventListener('pageshow', function(event) {
+								console.log('pageshow')
+							})
+						}
+					})
+
+					return {
+						systemTotal,
+						websiteList,
+						editServer,
+						getSystemTotal,
+						getWebsiteList,
+						openWebsite,
+						serverName4Title,
+					}
+				}
+			}).mount('#page')
+		</script>
+	</body>
+</html>
