@@ -1,0 +1,21 @@
+/* 方案1，修改css var --statusbar-height数值，需配合immersed.js使用 */
+:root {
+	--statusbar-height: 24px;
+}
+
+
+.mui-bar-nav {
+	padding-top: var(--statusbar-height);
+	height: calc(44px + var(--statusbar-height)) !important;
+	/* 44px 是 MUI 默认 nav 高度 */
+}
+
+.mui-content {
+	margin-top: var(--statusbar-height) !important;
+}
+
+/* 以下样式可以让滚动区域固定在一个位置滚动
+			不会往上滑动覆盖其它元素 */
+.mui-scroll-wrapper {
+	top: calc(98px + var(--statusbar-height)) !important;
+}
