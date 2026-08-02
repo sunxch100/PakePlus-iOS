@@ -1,0 +1,277 @@
+<!doctype html>
+<html>
+
+	<head>
+		<meta charset="utf-8">
+		<title>设置</title>
+		<meta name="viewport"
+			content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no" />
+		<link href="css/mui.min.css" rel="stylesheet" />
+		<style>
+			.current-sheet{
+				color: red!important;
+			}
+		</style>
+	</head>
+
+	<body>
+
+		<header class="mui-bar mui-bar-nav">
+			<a class="mui-action-back mui-icon mui-icon-left-nav mui-pull-left"></a>
+			<h1 class="mui-title">设置</h1>
+		</header>
+		<div class="mui-content">
+			<div class="mui-card">
+				<ul class="mui-table-view">
+					<li class="mui-table-view-cell">
+						<b>应用信息</b>
+					</li>
+					<li class="mui-table-view-cell">
+						<a class="mui-navigate-right2">
+							版本号：<span id="version">1.0</span>
+							&nbsp;&nbsp;<span id='checkupdateStatus'></span>
+						</a>
+					</li>
+					<li class="mui-table-view-cell" onclick="showUUID()">
+						<a class="mui-navigate-right2">
+							设备ID：<span id="uuid">*</span>
+						</a>
+					</li>
+				</ul>
+			</div>
+
+			<br />
+			<div class="mui-button-row">
+				<button type="button" class="mui-btn mui-btn-success" onclick="checkUpdate()">检查更新</button>
+			</div>
+		</div>
+
+		<script src="js/mui.min.js"></script>
+		<script type="text/javascript">
+			mui.init({
+				beforeback: () => {
+					if (mui.os.plus) {
+						if (downloader) {
+							plus.downloader.clear()
+						}
+					}
+				}
+			})
+
+			let myPage = null
+			mui.plusReady(function() {
+				getCurrentVersion()
+
+				mui('#uuid')[0].innerText = plus.device.uuid
+			})
+
+			mui.ready(function() {
+				
+			})
+
+			//获取设备UUID
+			function showUUID() {
+				let uuid = ''
+				plus.device.getInfo({
+					success: (e) => {
+						uuid = e.uuid
+
+						mui.alert(uuid + '<br>点击确定复制设备ID', '系统提示', '确定', (e) => {
+							copyToClipboard(uuid)
+						}, 'div')
+					},
+					fail: (e) => {
+						mui.toast('未获取到设备ID', {
+							type: 'div'
+						})
+					}
+				})
+			}
+
+
+			//复制到剪贴板
+			function copyToClipboard(text) {
+				// 创建临时textarea元素
+				const textArea = document.createElement('textarea')
+				textArea.value = text
+
+				// 隐藏textarea（避免页面闪烁）
+				textArea.style.position = 'fixed'
+				textArea.style.top = '-999px'
+				textArea.style.left = '-999px'
+				textArea.style.width = '2em'
+				textArea.style.height = '2em'
+
+				document.body.appendChild(textArea)
+				// 选中文本并复制
+				textArea.focus()
+				textArea.select()
+
+				try {
+					const successful = document.execCommand('copy');
+					if (successful) {
+						mui.toast('设备ID复制成功', {
+							type: 'div'
+						});
+					} else {
+						throw new Error('execCommand复制失败');
+					}
+				} catch (err) {
+					console.error('降级方案也失败：', err);
+					mui.toast('复制失败', {
+						type: 'div'
+					});
+				} finally {
+					// 移除临时元素
+					document.body.removeChild(textArea)
+				}
+			}
+
+			let isUpdating = false
+			let wgtVer = ''
+			let downloader = null
+
+			const $checkupdateStatus = mui('#checkupdateStatus')[0]
+
+			// 获取本地应用资源版本号
+			function getCurrentVersion() {
+				plus.runtime.getProperty(plus.runtime.appid, function(inf) {
+					wgtVer = inf.version
+
+					mui('#version')[0].innerText = wgtVer
+				})
+			}
+
+			// 检测更新
+			/* 差量更新操作步骤：
+			1、checkupdate.php更新为最新版本号,例如echo '2.3';
+			2、www下的manifest.json文件中的版本号version->name为最新,例如2.3
+			3、www同级目录下update.xml文件,文件格式如下
+			<?xml version="1.0" encoding="utf-8" standalone="no"?>  
+			<wgtu appid="H59D20144" >  
+				<basis version="2.2" />  这里的版本号为应用当前版本号,不是最新版本号
+				<remove>  
+					<item path="www/2.html" />  //只需要移除的目录，已存在的或新增的，会自动添加覆盖
+				</remove>  
+			</wgtu>
+			4、压缩包下打开必须是update.xml,不能放到二级目录下,创建这样的文件可以直接右键update.xml
+				压缩文件就可以
+			5、www目录下放需要更新的文件
+			6、特别注意,ios增量更新提示manifest.json文件格式错误，
+				是因为manifest.json在ios上需要压缩内容，
+				或者说只需要部分内容，可以直接从HBuilder生成的wgt文件中复制粘贴出来，
+				Android则不存在这个问题*/
+			function checkUpdate(e) {
+				if (isUpdating === true) {
+					return
+				}
+
+				isUpdating = true
+
+				$checkupdateStatus.innerText = '检查更新中...'
+
+				let checkUrl = "http://117.72.222.236/baota/checkupdate.php";
+
+				mui.ajax(checkUrl, {
+					dataType: 'text',
+					type: 'get',
+					timeout: 10000,
+					success: function(newVer) {
+						//$checkupdateStatus.innerText = ''
+
+						if (wgtVer && newVer && (wgtVer != newVer)) {
+							//plus.nativeUI.closeWaiting()
+
+							downWgt()
+						} else {
+							$checkupdateStatus.innerText = ''
+							isUpdating = false
+
+							//setStatusBarBackgroundColor()
+							mui.alert('暂无新版本可更新！', '系统提示', '确定', function(e) {
+								//restoreStatusBarBackgroundColor()
+							}, 'div')
+						}
+					},
+					error: function(xhr, type, errorThrown) {
+						$checkupdateStatus.innerText = ''
+						isUpdating = false
+
+						//setStatusBarBackgroundColor()
+						mui.alert('服务器繁忙：' + errorThrown, '系统提示', '确定', function(e) {
+							//restoreStatusBarBackgroundColor()
+						}, 'div')
+					}
+				})
+			}
+
+			//下载wgt文件  
+			function downWgt() {
+				let wgtUrl = "http://117.72.222.236/baota/H570BF841.wgt"
+
+				//plus.nativeUI.showWaiting("下载更新文件...")
+				$checkupdateStatus.innerText = '下载更新文件...'
+
+				downloader = plus.downloader.createDownload(wgtUrl, {
+					filename: "_doc/update/",
+					timeout:30,
+					retry:1,
+					retryInterval:5
+				}, function(d, status) {
+					if (status == 200) {
+						//plus.nativeUI.closeWaiting()
+						$checkupdateStatus.innerText = '下载更新文件完成'
+						installWgt(d.filename)
+					} else {
+						//plus.nativeUI.closeWaiting()
+						$checkupdateStatus.innerText = '下载更新文件失败'
+						isUpdating = false
+
+						//setStatusBarBackgroundColor()
+						mui.alert("下载更新文件失败！", '系统提示', '确定', function(e) {
+							//restoreStatusBarBackgroundColor()
+						}, 'div')
+					}
+				})
+
+				downloader.start()
+			}
+
+			// 更新应用资源  
+			function installWgt(path) {
+				//plus.nativeUI.showWaiting("安装更新包，请稍候...")
+				$checkupdateStatus.innerText = '安装更新包...'
+
+				plus.runtime.install(path, {
+					force: true
+				}, function() {
+					//plus.nativeUI.closeWaiting()
+
+					plus.runtime.getProperty(plus.runtime.appid, function(inf) {
+						wgtVer = inf.version
+
+						mui('#version')[0].innerText = wgtVer
+
+						$checkupdateStatus.innerText = ''
+
+						//setStatusBarBackgroundColor()
+						mui.alert("应用更新完成，点击重启", '系统提示', '确定', function(e) {
+							//restoreStatusBarBackgroundColor()
+							plus.runtime.restart()
+						}, 'div')
+					})
+				}, function(e) {
+					//plus.nativeUI.closeWaiting()
+					$checkupdateStatus.innerText = ''
+					isUpdating = false
+
+					//setStatusBarBackgroundColor()
+					mui.alert("安装更新包失败[" + e.code + "]<br>" + e.message, '系统提示', '确定', function(e) {
+						//restoreStatusBarBackgroundColor()
+					}, 'div')
+				})
+			}
+		</script>
+	</body>
+
+</html>
