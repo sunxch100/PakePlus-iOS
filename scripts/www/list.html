@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
+	<title></title>
+	<!-- <script src="html5plus://ready"></script> --><!-- 如果使用这个协议，那么必须放在所有script之前 -->
+	<script src="js/mui.min.js"></script>
+	<link href="css/mui.min.css" rel="stylesheet" />
+	<link href="css/common.css" rel="stylesheet" />
+	<style>
+		.mui-scroll-wrapper {
+			/* top: 98px; */
+			top: 0 !important;
+			padding-bottom: 0 !important;
+		}
+
+		.mui-scroll-wrapper .mui-card {
+			margin-top: 0;
+		}
+
+		.btn-group {
+			display: flex;
+			justify-content: space-between;
+			padding: 10px;
+			gap: 0px;
+			z-index: 99;
+			flex-wrap: nowrap;
+		}
+
+		.btn-group .mui-btn {
+			flex-shrink: 1;
+			flex-grow: 0;
+			/* font-size: 12px; */
+		}
+
+		.unsafe {
+			color: #f0ad4e;
+		}
+
+		.safe {
+			color: #4cd964;
+		}
+
+		:root {
+			--statusbar-height: 0px;
+		}
+
+		.wrapper {
+			position: fixed;
+			top: calc(var(--statusbar-height) + 44px + 53px);
+			bottom: 35px;
+			left: 10px;
+			right: 10px;
+			border-radius: 2px;
+			overflow: hidden;
+			background-color: #fff;
+			box-shadow: 0 1px 2px rgba(0, 0, 0, .3);
+		}
+
+		.mui-table-view.no-line:before,
+		.mui-table-view.no-line:after {
+			background-color: transparent;
+		}
+
+		.mui-table-view-cell:after {
+			/* left:0; */
+		}
+
+		.mui-scroll .mui-card2 {
+			border-radius: 6px;
+			margin: 0;
+			box-shadow: none;
+		}
+	</style>
+</head>
+
+<body>
+	<div id="page">
+		<header class="mui-bar mui-bar-nav">
+			<h1 class="mui-title">服务器列表</h1>
+			<a class="mui-icon mui-icon-gear-filled mui-pull-right" @click="openSetting()"></a>
+		</header>
+
+		<div class="mui-content">
+			<div class="btn-group">
+				<button type="button"
+					class="mui-btn  mui-icon mui-icon-plus"
+					@click="addServer()">添加服务器</button>
+
+				<button type="button"
+					class="mui-btn mui-btn-primary  mui-icon mui-icon-download"
+					@click="downloadServerList()">下载列表</button>
+
+				<button type="button"
+					class="mui-btn  mui-btn-red  mui-icon mui-icon-upload"
+					@click="uploadServerList()">同步到服务器</button>
+			</div>
+
+			<div class="wrapper" ref="wrapper">
+				<div class="mui-scroll-wrapper">
+					<div class="mui-scroll">
+						<div class="mui-card2">
+							<ul class="mui-table-view" ref='tableView'>
+								<li class="mui-table-view-cell item" v-for="server in serverList" :key="server.id"
+									@click.stop="openDetail(server, $event)">
+									<div class="mui-slider-handle">
+										<span class="mui-navigate-right">
+											{{server.server_name}}
+											<span v-if="server.username">- </span>
+											<span v-if="server.username"
+												:class="server.password?'unsafe':''">{{server.username}}</span>
+											<p>
+												<span v-if="isHttps(server.server_addr)"
+													class="safe">https</span>{{formatServerAddr(server.server_addr)}}
+											</p>
+										</span>
+									</div>
+
+									<div class="mui-slider-right mui-disabled">
+										<a class="mui-btn mui-btn-red delete" @click.stop="deleteServer(server.id, $event)">删除</a>
+										<a class="mui-btn mui-btn-warning edit" @click.stop="editServer(server, $event)">修改</a>
+										<a class="mui-btn mui-btn-primary website" @click.stop="viewWebsite(server, $event)">网站</a>
+									</div>
+								</li>
+
+							</ul>
+							<div class="mui-card-content-inner" v-if="serverList.length===0">暂无服务器列表</div>
+						</div>
+					</div>
+				</div><!--end .mui-scroll-wrapper-->
+			</div>
+		</div><!--.mui-content-->
+	</div><!--end #page-->
+
+	<div class="safe-area"></div>
+
+	<script src="js/init.js"></script>
+	<script src="js/util.js"></script>
+	<script src="js/immersed2.js"></script>
+	<script src="js/vue.global.prod.min.js"></script>
+	<script>
+		mui.init({
+			statusBarBackground: '#f7f7f7',
+			beforeback: function() {
+				//首页返回切换到后台
+				let main = plus.android.runtimeMainActivity()
+				main.moveTaskToBack(false)
+
+				return false
+			},
+			/* keyEventBind: {
+				backbutton: true, //false：关闭back按键监听
+				menubutton: false //false：关闭menu按键监听
+			}, */
+		})
+
+		let uuid = ''
+		let userToken = ''
+
+		mui.plusReady(function() {
+			uuid = plus.device.uuid
+
+			//plus.navigator.setStatusBarStyle("dark")
+			//plus.navigator.setStatusBarBackground('#f7f7f7')
+
+			if (mui.os.ios) {
+				//injectComponentStyle()
+			}
+			//injectSafeareaStyle()
+
+
+			app.mount('#page')
+
+			const statusbarHeight = plus.navigator.getStatusbarHeight()
+			document.documentElement.style.setProperty('--statusbar-height', statusbarHeight + 'px')
+
+			mui.later(function() {
+				plus.navigator.closeSplashscreen()
+			}, 500)
+		})
+
+		const {
+			createApp,
+			ref,
+			nextTick,
+			onMounted,
+		} = Vue
+
+		const app = createApp({
+			setup() {
+				const serverList = ref([])
+
+				const saveServerList = () => {
+					localStorage.setItem('serverList', JSON.stringify(serverList.value))
+				}
+
+				const sortServerList = () => {
+					serverList.value.sort((a, b) => Number(b.sort || 0) - Number(a.sort || 0))
+				}
+
+				const closeSwipeout = (event) => {
+					const li = event?.target?.closest?.('li')
+					if (li) {
+						mui.swipeoutClose(li)
+					}
+				}
+
+				const wrapper = ref(null)
+				const tableView = ref(null)
+
+				const check = async () => {
+					await nextTick()
+
+					const wrapperEl = wrapper.value
+					const listEl = tableView.value
+
+					if (listEl.scrollHeight > wrapperEl.clientHeight) {
+						listEl.classList.add('no-line')
+					} else {
+						listEl.classList.remove('no-line')
+					}
+				}
+
+				const getUserToken = () => localStorage.getItem('userToken') ?? ''
+
+				const showRequestError = (errorThrown = '') => {
+					mui.alert(`服务器繁忙：${errorThrown || '请稍后再试'}`, '系统提示', () => {}, 'div')
+				}
+
+				const isHttps = (addr = '') => String(addr).startsWith('https')
+
+				const formatServerAddr = (addr = '') => String(addr).replace(/^https/, '')
+
+				const addServer = () => {
+					mui.openWindow({
+						url: 'add.html',
+						id: 'add.html',
+						createNew: false,
+						styles: {
+							render: "always"
+						}
+					})
+				}
+
+				const openDetail = (server, event) => {
+					closeSwipeout(event)
+
+					/* const titleNView = {
+					    backgroundColor: '#f7f7f7',//导航栏背景色
+					    titleText: '透明渐变',//导航栏标题
+					    titleColor: '#ff0000',//文字颜色
+					    type:'transparent',//透明渐变样式
+					    autoBackButton: true,//自动绘制返回箭头
+					    splitLine:{//底部分割线
+					        color:'#cccccc'
+					    }
+					} */
+
+					mui.openWindow({
+						url: 'detail.html',
+						id: 'detail.html',
+						extras: {
+							server: server
+						},
+						styles: {
+							scrollIndicator: "none",
+							bounce: "none", //all,vertical,none 控制ios webview整体页面回弹:vertical
+							top: 0,
+							bottom: 0
+							/* titleNView:titleNView  */
+						}
+					})
+				}
+
+				const viewWebsite = (server, event) => {
+					closeSwipeout(event)
+					mui.openWindow({
+						url: 'detail.html',
+						id: 'detail.html',
+						createNew: false,
+						styles: {
+							scrollIndicator: "none",
+							bounce: "none",
+							top: 0,
+							bottom: 0
+						},
+						extras: {
+							server: server,
+							showSystemInfo: false
+						},
+					})
+				}
+
+				const deleteServer = (id = '', event) => {
+					mui.confirm('确定要删除该服务器信息吗？', '系统提示', ['取消', '删除'], (e) => {
+						if (e.index === 1) {
+							const index = serverList.value.findIndex(item => item.id === id)
+
+							if (index !== -1) {
+								serverList.value.splice(index, 1)
+								saveServerList()
+								check()
+							}
+						}
+						closeSwipeout(event)
+					}, 'div')
+				}
+
+				const editServer = (server, event) => {
+					closeSwipeout(event)
+					mui.openWindow({
+						url: 'edit.html',
+						id: 'edit.html',
+						createNew: false,
+						extras: {
+							server: server
+						},
+					})
+				}
+
+
+
+				const showServerList = async () => {
+					let savedServerList = []
+
+					try {
+						savedServerList = JSON.parse(localStorage.getItem('serverList') || '[]')
+					} catch (error) {
+						localStorage.removeItem('serverList')
+					}
+
+					if (savedServerList.length) {
+						serverList.value = savedServerList
+						sortServerList()
+
+						check()
+					} else {
+						mui.confirm('服务器列表为空\n请先下载列表', '系统提示', ['取消', '下载'], (e) => {
+							if (e.index === 1) {
+								getServerList()
+							}
+						}, 'div')
+					}
+				}
+
+				const downloadServerList = () => {
+					mui.confirm(
+						'确定要下载服务器列表吗?\n此操作会覆盖本地服务器列表',
+						'系统提示',
+						['取消', '下载'],
+						(e) => {
+							if (e.index === 0) {
+								return true
+							}
+							getServerList()
+						}, 'div')
+				}
+
+				const getServerList = () => {
+					userToken = getUserToken()
+					mui.ajax(BASEURL + '/baota.php?action=downloadServerList', {
+						data: {
+							userToken: userToken
+						},
+						dataType: 'json',
+						type: 'get',
+						timeout: 10000,
+						success: (res) => {
+							if (res.code === 0) {
+								logX(res.data)
+								serverList.value = Array.isArray(res.data) ? res.data : []
+								sortServerList()
+								saveServerList()
+
+								check()
+
+								mui.toast('服务器列表下载完成', {
+									type: 'div'
+								})
+							} else {
+								mui.alert(res.msg, '系统提示', () => {}, 'div')
+							}
+						},
+						error: (xhr, type, errorThrown) => {
+							showRequestError(errorThrown)
+						}
+					})
+				}
+
+				const uploadServerList = () => {
+					userToken = getUserToken()
+					mui.confirm(
+						'确定要将当前列表同步到服务器吗?\n此操作会覆盖服务器上保存的列表',
+						'系统提示',
+						['取消', '同步'], (e) => {
+							if (e.index === 0) {
+								return true
+							}
+							mui.ajax(BASEURL + '/baota.php?action=uploadServerList', {
+								data: {
+									uuid: uuid,
+									userToken: userToken,
+									serverList: JSON.stringify(serverList.value)
+								},
+								dataType: 'json', //服务器返回json格式数据
+								type: 'post', //HTTP请求类型
+								timeout: 10000, //超时时间设置为10秒；
+								success: (res) => {
+									mui.alert(res.msg, '系统提示', '确定', () => {}, 'div')
+								},
+								error: (xhr, type, errorThrown) => {
+									showRequestError(errorThrown)
+								}
+							});
+
+						}, 'div')
+				}
+
+				const openSetting = () => {
+					mui.openWindow({
+						url: 'setting.html',
+						id: 'setting.html',
+						createNew: true,
+					})
+				}
+
+				onMounted(() => {
+					showServerList()
+
+					mui('#page')[0].classList.add('vue-loaded')
+
+					mui('.mui-scroll-wrapper').scroll({
+						bounce: true,
+						indicators: false
+					})
+
+					window.addEventListener('refreshList', (event) => {
+						const newServerData = event.detail.server
+
+						const index = serverList.value.findIndex(item => item.id === newServerData.id)
+						if (index !== -1) {
+							// 直接修改已有属性是响应式的
+							serverList.value[index] = newServerData
+						} else {
+							//添加新的数据
+							serverList.value.push(newServerData)
+						}
+
+						sortServerList()
+						saveServerList()
+
+						check()
+					})
+
+					window.addEventListener('clearList', (event) => {
+						serverList.value.length = 0
+						saveServerList()
+					})
+				})
+
+				return {
+					serverList,
+					addServer,
+					getServerList,
+					openDetail,
+					deleteServer,
+					editServer,
+					viewWebsite,
+					showServerList,
+					downloadServerList,
+					uploadServerList,
+					openSetting,
+					isHttps,
+					check,
+					wrapper,
+					tableView,
+					formatServerAddr,
+				}
+			}
+		})
+	</script>
+</body>
+
+</html>
